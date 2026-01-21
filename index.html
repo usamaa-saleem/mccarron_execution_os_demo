@@ -106,6 +106,12 @@
             z-index: 999;
             pointer-events: none;
         }
+        #tooltipContainer {
+            pointer-events: none;
+        }
+        .tooltip-bubble {
+            pointer-events: auto;
+        }
         .demo-progress {
             position: fixed;
             top: 0;
@@ -458,8 +464,18 @@
         let currentStep = 0;
         const totalSteps = 7;
 
+        function ensureScrollingEnabled() {
+            // Explicitly ensure scrolling is always enabled
+            document.body.style.overflow = 'auto';
+            document.documentElement.style.overflow = 'auto';
+            document.body.style.height = 'auto';
+            document.documentElement.style.height = 'auto';
+            document.body.style.position = 'relative';
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
+            ensureScrollingEnabled();
             setupEventListeners();
             setupDragAndDrop();
             setupParticipantInput();
@@ -518,36 +534,58 @@
         function repositionTooltip() {
             if (!currentTooltip || !currentTooltipElement) return;
             
-            const rect = currentTooltipElement.getBoundingClientRect();
-            const tooltipRect = { width: 320, height: 120 };
-            
-            let top, left;
-            switch(currentTooltipPosition) {
-                case 'top':
-                    top = rect.top - tooltipRect.height - 20;
-                    left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
-                    break;
-                case 'bottom':
-                    top = rect.bottom + 20;
-                    left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
-                    break;
-                case 'left':
-                    top = rect.top + (rect.height / 2) - (tooltipRect.height / 2);
-                    left = rect.left - tooltipRect.width - 20;
-                    break;
-                case 'right':
-                    top = rect.top + (rect.height / 2) - (tooltipRect.height / 2);
-                    left = rect.right + 20;
-                    break;
+            try {
+                const rect = currentTooltipElement.getBoundingClientRect();
+                const tooltipRect = { width: 320, height: 120 };
+                
+                let top, left;
+                switch(currentTooltipPosition) {
+                    case 'top':
+                        top = rect.top - tooltipRect.height - 20;
+                        left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+                        break;
+                    case 'bottom':
+                        top = rect.bottom + 20;
+                        left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+                        break;
+                    case 'left':
+                        top = rect.top + (rect.height / 2) - (tooltipRect.height / 2);
+                        left = rect.left - tooltipRect.width - 20;
+                        break;
+                    case 'right':
+                        top = rect.top + (rect.height / 2) - (tooltipRect.height / 2);
+                        left = rect.right + 20;
+                        break;
+                    default:
+                        top = rect.bottom + 20;
+                        left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+                }
+
+                // Ensure tooltip stays within viewport
+                const padding = 20;
+                top = Math.max(padding, Math.min(top, window.innerHeight - tooltipRect.height - padding));
+                left = Math.max(padding, Math.min(left, window.innerWidth - tooltipRect.width - padding));
+
+                // If tooltip would be off-screen, adjust position
+                if (top < padding) {
+                    top = rect.bottom + 20; // Show below instead
+                }
+                if (left < padding) {
+                    left = padding;
+                }
+                if (left + tooltipRect.width > window.innerWidth - padding) {
+                    left = window.innerWidth - tooltipRect.width - padding;
+                }
+
+                currentTooltip.style.top = `${top}px`;
+                currentTooltip.style.left = `${left}px`;
+            } catch (error) {
+                console.error('Error repositioning tooltip:', error);
+                // Fallback positioning
+                currentTooltip.style.top = '100px';
+                currentTooltip.style.left = '50%';
+                currentTooltip.style.transform = 'translateX(-50%)';
             }
-
-            // Ensure tooltip stays within viewport
-            const padding = 20;
-            top = Math.max(padding, Math.min(top, window.innerHeight - tooltipRect.height - padding));
-            left = Math.max(padding, Math.min(left, window.innerWidth - tooltipRect.width - padding));
-
-            currentTooltip.style.top = `${top}px`;
-            currentTooltip.style.left = `${left}px`;
         }
 
         function showTooltip(element, message, position = 'bottom') {
@@ -555,6 +593,9 @@
             if (currentTooltip) {
                 clearTooltip();
             }
+
+            // Ensure scrolling is enabled
+            ensureScrollingEnabled();
 
             const tooltip = document.createElement('div');
             tooltip.className = `tooltip-bubble ${position}`;
@@ -576,10 +617,16 @@
 
             document.getElementById('tooltipContainer').appendChild(tooltip);
             
-            // Reposition on scroll and resize
-            const repositionHandler = () => repositionTooltip();
+            // Reposition on scroll and resize (throttled to not interfere with scrolling)
+            let repositionTimeout;
+            const repositionHandler = () => {
+                clearTimeout(repositionTimeout);
+                repositionTimeout = setTimeout(() => {
+                    repositionTooltip();
+                }, 50); // Throttle repositioning
+            };
             window.addEventListener('scroll', repositionHandler, { passive: true });
-            window.addEventListener('resize', repositionHandler);
+            window.addEventListener('resize', repositionHandler, { passive: true });
             
             // Also reposition after a short delay to catch any layout shifts
             setTimeout(() => {
@@ -590,6 +637,7 @@
             
             // Store cleanup function
             tooltip._cleanup = () => {
+                clearTimeout(repositionTimeout);
                 window.removeEventListener('scroll', repositionHandler);
                 window.removeEventListener('resize', repositionHandler);
             };
@@ -601,7 +649,10 @@
             if (currentTooltip && currentTooltip._cleanup) {
                 currentTooltip._cleanup();
             }
-            clearTooltip();
+            const tooltipContainer = document.getElementById('tooltipContainer');
+            if (tooltipContainer) {
+                tooltipContainer.innerHTML = '';
+            }
             currentTooltip = null;
             currentTooltipElement = null;
             currentTooltipPosition = null;
@@ -1047,22 +1098,38 @@
             document.getElementById('demoOverlay').classList.remove('hidden');
             updateDemoProgress(0);
             
+            // Ensure scrolling is always enabled during demo
+            ensureScrollingEnabled();
+            
+            try {
+            
             // Initial tooltip: Welcome to demo
             await sleep(500);
-            const progressBar = document.getElementById('demoProgress');
-            let unhighlight = highlightElement(progressBar);
-            showTooltip(progressBar, {
-                title: 'Guided Demo Started',
-                text: 'Watch as we walk through the complete flow from session capture to execution. Tooltips will explain each step. Take your time reading them.'
-            }, 'bottom');
-            await sleep(5000);
-            unhighlight();
-            clearTooltip();
+            try {
+                const header = document.querySelector('header');
+                if (header) {
+                    let unhighlight = highlightElement(header);
+                    showTooltip(header, {
+                        title: 'Guided Demo Started',
+                        text: 'Watch as we walk through the complete flow from session capture to execution. Tooltips will explain each step. Take your time reading them.'
+                    }, 'bottom');
+                    await sleep(5000);
+                    unhighlight();
+                    clearTooltip();
+                }
+            } catch (error) {
+                console.error('Error showing initial tooltip:', error);
+                clearTooltip();
+            }
 
             // Step 1: Create session
-            currentStep = 1;
-            updateDemoProgress(1);
-            showStepIndicator('actionBoard', 1);
+            try {
+                currentStep = 1;
+                updateDemoProgress(1);
+                showStepIndicator('actionBoard', 1);
+            } catch (error) {
+                console.error('Error in step 1 setup:', error);
+            }
             
             const modal = document.getElementById('sessionModal');
             modal.classList.remove('hidden');
@@ -1151,6 +1218,12 @@
             generateActionPlan();
             document.getElementById('sessionModal').classList.add('hidden');
             await sleep(800);
+            
+            // Scroll to timeline before showing timeline tooltips
+            const timelineContainer = document.getElementById('timeline')?.closest('.premium-card') || document.getElementById('dashboard');
+            if (timelineContainer) {
+                await scrollToElement(timelineContainer, 150);
+            }
             
             // Tooltip: Timeline step 1
             const timelineStep1 = document.querySelectorAll('#timeline > div:not(.text-gray-300)')[0];
@@ -1260,6 +1333,12 @@
                 updateTimeline(3);
                 await sleep(400);
                 
+                // Ensure we're scrolled to timeline
+                const timelineForStep3 = document.getElementById('timeline')?.closest('.premium-card');
+                if (timelineForStep3) {
+                    await scrollToElement(timelineForStep3, 150);
+                }
+                
                 // Tooltip: Timeline step 3
                 const timelineStep3 = document.querySelectorAll('#timeline > div:not(.text-gray-300)')[2];
                 if (timelineStep3) {
@@ -1310,6 +1389,12 @@
             
             updateTimeline(4);
             await sleep(400);
+            
+            // Ensure we're scrolled to timeline
+            const timelineForStep4 = document.getElementById('timeline')?.closest('.premium-card');
+            if (timelineForStep4) {
+                await scrollToElement(timelineForStep4, 150);
+            }
             
             // Tooltip: Timeline step 4
             const timelineStep4 = document.querySelectorAll('#timeline > div:not(.text-gray-300)')[3];
@@ -1399,6 +1484,12 @@
                 updateTimeline(5);
                 await sleep(400);
                 
+                // Ensure we're scrolled to timeline
+                const timelineForStep5 = document.getElementById('timeline')?.closest('.premium-card');
+                if (timelineForStep5) {
+                    await scrollToElement(timelineForStep5, 150);
+                }
+                
                 // Tooltip: Timeline step 5
                 const timelineStep5 = document.querySelectorAll('#timeline > div:not(.text-gray-300)')[4];
                 if (timelineStep5) {
@@ -1481,6 +1572,12 @@
                 
                 updateTimeline(6);
                 await sleep(400);
+                
+                // Ensure we're scrolled to timeline
+                const timelineForStep6 = document.getElementById('timeline')?.closest('.premium-card');
+                if (timelineForStep6) {
+                    await scrollToElement(timelineForStep6, 150);
+                }
                 
                 // Tooltip: Timeline step 6
                 const timelineStep6 = document.querySelectorAll('#timeline > div:not(.text-gray-300)')[5];
@@ -1586,24 +1683,24 @@
             
             await sleep(500);
 
-            // Cleanup
-            document.getElementById('demoProgress').classList.add('hidden');
-            document.getElementById('demoOverlay').classList.add('hidden');
-            clearTooltip();
-            
-            // Scroll to top
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            await sleep(500);
+            } catch (error) {
+                console.error('Error during demo:', error);
+            } finally {
+                // Always cleanup, even if there was an error
+                clearTooltip();
+                document.getElementById('demoProgress').classList.add('hidden');
+                document.getElementById('demoOverlay').classList.add('hidden');
+                
+                btn.disabled = false;
+                btn.innerHTML = '<span class="flex items-center gap-2"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>Start Guided Demo</span>';
+                autoDemoRunning = false;
 
-            btn.disabled = false;
-            btn.innerHTML = '<span class="flex items-center gap-2"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>Start Guided Demo</span>';
-            autoDemoRunning = false;
-
-            // Hide step indicators
-            ['actionBoardStep', 'checkInStep', 'dashboardStep', 'summaryStep'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.classList.add('hidden');
-            });
+                // Hide step indicators
+                ['actionBoardStep', 'checkInStep', 'dashboardStep', 'summaryStep'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.classList.add('hidden');
+                });
+            }
         }
 
         function sleep(ms) {
