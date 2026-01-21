@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>McCarron Execution OS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideIn {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        @keyframes highlight {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
+            50% { box-shadow: 0 0 0 8px rgba(0, 0, 0, 0.1); }
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+        .slide-in { animation: slideIn 0.4s ease-out; }
+        .slide-up { animation: slideUp 0.5s ease-out; }
+        .kanban-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .kanban-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.12);
+        }
+        .kanban-card.dragging {
+            opacity: 0.5;
+            transform: rotate(2deg);
+        }
+        .kanban-column.drag-over {
+            background-color: #f0f9ff;
+            border: 2px dashed #3b82f6;
+        }
+        .modal-backdrop {
+            backdrop-filter: blur(8px);
+            background: rgba(0, 0, 0, 0.4);
+        }
+        .kpi-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+        }
+        .kpi-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+        }
+        .highlight-element {
+            animation: highlight 2s ease-in-out infinite;
+            position: relative;
+            z-index: 10;
+        }
+        .tooltip-bubble {
+            position: absolute;
+            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+            color: white;
+            padding: 16px 20px;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            max-width: 320px;
+            z-index: 1000;
+            animation: slideUp 0.4s ease-out;
+        }
+        .tooltip-bubble::before {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 0;
+            border: 10px solid transparent;
+        }
+        .tooltip-bubble.top::before {
+            bottom: -20px;
+            left: 20px;
+            border-top-color: #1f2937;
+        }
+        .tooltip-bubble.bottom::before {
+            top: -20px;
+            left: 20px;
+            border-bottom-color: #1f2937;
+        }
+        .tooltip-bubble.left::before {
+            right: -20px;
+            top: 20px;
+            border-left-color: #1f2937;
+        }
+        .tooltip-bubble.right::before {
+            left: -20px;
+            top: 20px;
+            border-right-color: #1f2937;
+        }
+        .demo-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            backdrop-filter: blur(2px);
+        }
+        .demo-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: #e5e7eb;
+            z-index: 1001;
+        }
+        .demo-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            transition: width 0.5s ease;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+        }
+        .premium-gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .premium-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+        }
+        .section-header {
+            background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+            padding: 24px;
+            border-radius: 16px;
+            margin-bottom: 24px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+        }
+        .pulse-ring {
+            position: absolute;
+            border: 2px solid #3b82f6;
+            border-radius: 50%;
+            animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse-ring {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1.5);
+                opacity: 0;
+            }
+        }
+        .step-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(59, 130, 246, 0.1);
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #3b82f6;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-white text-gray-900 font-sans">
+    <!-- Demo Progress Bar -->
+    <div id="demoProgress" class="demo-progress hidden">
+        <div id="demoProgressBar" class="demo-progress-bar" style="width: 0%"></div>
+    </div>
+
+    <!-- Demo Overlay -->
+    <div id="demoOverlay" class="demo-overlay hidden"></div>
+
+    <!-- Tooltip Container -->
+    <div id="tooltipContainer"></div>
+
+    <!-- Landing Header -->
+    <header class="border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h1 class="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">McCarron Execution OS</h1>
+                    <p class="text-gray-600 mt-1 text-lg">Turn coaching sessions into execution, automatically.</p>
+                </div>
+                <div class="flex gap-3">
+                    <button id="autoDemoBtn" class="px-6 py-3 btn-primary text-white rounded-xl font-semibold shadow-lg">
+                        <span class="flex items-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Start Guided Demo
+                        </span>
+                    </button>
+                    <button id="createSessionBtn" class="px-6 py-3 bg-white border-2 border-gray-300 text-gray-900 rounded-xl font-semibold hover:bg-gray-50 transition-all shadow-sm">
+                        Create Session
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <!-- Session Creation Modal -->
+        <div id="sessionModal" class="hidden fixed inset-0 z-50 modal-backdrop">
+            <div class="flex items-center justify-center min-h-screen p-4">
+                <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div class="p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+                        <h2 class="text-2xl font-bold text-gray-900">Create New Session</h2>
+                        <p class="text-sm text-gray-600 mt-1">Capture your coaching session and turn it into actionable execution</p>
+                    </div>
+                    <div class="p-6 space-y-6">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Session Name</label>
+                            <input type="text" id="sessionName" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all" placeholder="Exec Alignment Workshop">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Date</label>
+                            <input type="date" id="sessionDate" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Coach Notes</label>
+                            <textarea id="coachNotes" rows="4" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all" placeholder="Key discussion points, decisions made, context..."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Participants</label>
+                            <div id="participantsContainer" class="flex flex-wrap gap-2 p-3 border-2 border-gray-200 rounded-xl min-h-[50px] focus-within:border-gray-900 transition-all">
+                                <input type="text" id="participantInput" class="flex-1 min-w-[150px] border-0 focus:outline-none" placeholder="Add participant...">
+                            </div>
+                            <div id="participantTags" class="flex flex-wrap gap-2 mt-2"></div>
+                        </div>
+                        <div class="flex gap-3 pt-4">
+                            <button id="generatePlanBtn" class="flex-1 px-6 py-3 btn-primary text-white rounded-xl font-semibold shadow-lg">
+                                Generate Action Plan
+                            </button>
+                            <button id="closeModalBtn" class="px-6 py-3 bg-white border-2 border-gray-300 text-gray-900 rounded-xl font-semibold hover:bg-gray-50 transition-all">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Board (Kanban) -->
+        <section id="actionBoard" class="mb-16">
+            <div class="section-header">
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-3xl font-bold text-gray-900">Action Board</h2>
+                    <span id="actionBoardStep" class="step-indicator hidden">Step 2 of 7</span>
+                </div>
+                <p class="text-gray-600 text-lg">Track execution across your team with visual workflow management</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="kanban-column premium-card rounded-xl p-5 shadow-sm" data-column="committed">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-gray-900 text-lg">Committed</h3>
+                        <span id="committedCount" class="bg-gray-200 text-gray-700 text-xs font-bold px-3 py-1 rounded-full">0</span>
+                    </div>
+                    <div id="committedCards" class="space-y-3 min-h-[200px]"></div>
+                </div>
+                <div class="kanban-column premium-card rounded-xl p-5 shadow-sm" data-column="in-progress">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-gray-900 text-lg">In Progress</h3>
+                        <span id="inProgressCount" class="bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1 rounded-full">0</span>
+                    </div>
+                    <div id="inProgressCards" class="space-y-3 min-h-[200px]"></div>
+                </div>
+                <div class="kanban-column premium-card rounded-xl p-5 shadow-sm" data-column="blocked">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-gray-900 text-lg">Blocked</h3>
+                        <span id="blockedCount" class="bg-red-100 text-red-700 text-xs font-bold px-3 py-1 rounded-full">0</span>
+                    </div>
+                    <div id="blockedCards" class="space-y-3 min-h-[200px]"></div>
+                </div>
+                <div class="kanban-column premium-card rounded-xl p-5 shadow-sm" data-column="done">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-gray-900 text-lg">Done</h3>
+                        <span id="doneCount" class="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full">0</span>
+                    </div>
+                    <div id="doneCards" class="space-y-3 min-h-[200px]"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Weekly Check-in Flow -->
+        <section id="checkInSection" class="mb-16">
+            <div class="section-header">
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-3xl font-bold text-gray-900">Weekly Check-ins</h2>
+                    <span id="checkInStep" class="step-indicator hidden">Step 4 of 7</span>
+                </div>
+                <p class="text-gray-600 text-lg">Automated follow-up that surfaces blockers before they derail execution</p>
+            </div>
+            <div id="checkInList" class="space-y-4">
+                <div class="text-center py-16 text-gray-500 bg-white rounded-xl border-2 border-dashed border-gray-200">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                    </svg>
+                    <p class="text-lg">No check-ins scheduled yet. Create a session to get started.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Founder/CEO Dashboard -->
+        <section id="dashboard" class="mb-16">
+            <div class="section-header">
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-3xl font-bold text-gray-900">Leadership Dashboard</h2>
+                    <span id="dashboardStep" class="step-indicator hidden">Step 5 of 7</span>
+                </div>
+                <p class="text-gray-600 text-lg">Real-time visibility into execution health and team momentum</p>
+            </div>
+            
+            <!-- KPIs -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+                <div class="kpi-card premium-card rounded-xl p-6 shadow-sm">
+                    <div class="text-sm font-semibold text-gray-600 mb-2">Actions Created</div>
+                    <div id="kpiActions" class="text-4xl font-bold text-gray-900 mb-1">0</div>
+                    <div class="text-xs text-gray-500">This month</div>
+                </div>
+                <div class="kpi-card premium-card rounded-xl p-6 shadow-sm">
+                    <div class="text-sm font-semibold text-gray-600 mb-2">Completion Rate</div>
+                    <div id="kpiCompletion" class="text-4xl font-bold text-gray-900 mb-1">0%</div>
+                    <div class="text-xs text-gray-500">All time</div>
+                </div>
+                <div class="kpi-card premium-card rounded-xl p-6 shadow-sm">
+                    <div class="text-sm font-semibold text-gray-600 mb-2">Blockers Open</div>
+                    <div id="kpiBlockers" class="text-4xl font-bold text-gray-900 mb-1">0</div>
+                    <div class="text-xs text-gray-500">Active</div>
+                </div>
+                <div class="kpi-card premium-card rounded-xl p-6 shadow-sm">
+                    <div class="text-sm font-semibold text-gray-600 mb-2">Avg Time to Close</div>
+                    <div id="kpiTimeToClose" class="text-4xl font-bold text-gray-900 mb-1">0</div>
+                    <div class="text-xs text-gray-500">Days</div>
+                </div>
+                <div class="kpi-card premium-card rounded-xl p-6 shadow-sm">
+                    <div class="text-sm font-semibold text-gray-600 mb-2">Clarity Score</div>
+                    <div id="kpiClarity" class="text-4xl font-bold text-gray-900 mb-1">0</div>
+                    <div class="text-xs text-gray-500">Out of 100</div>
+                </div>
+            </div>
+
+            <!-- Session to Execution Timeline -->
+            <div class="premium-card rounded-xl p-8 shadow-sm">
+                <h3 class="font-bold text-gray-900 text-xl mb-6">Session to Execution Timeline</h3>
+                <div id="timeline" class="flex flex-wrap gap-4 items-center">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-bold text-gray-600 transition-all">1</div>
+                        <span class="text-sm text-gray-600 font-medium">Session created</span>
+                    </div>
+                    <div class="text-gray-300 text-xl">→</div>
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-bold text-gray-600 transition-all">2</div>
+                        <span class="text-sm text-gray-600 font-medium">Action plan generated</span>
+                    </div>
+                    <div class="text-gray-300 text-xl">→</div>
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-bold text-gray-600 transition-all">3</div>
+                        <span class="text-sm text-gray-600 font-medium">Owners assigned</span>
+                    </div>
+                    <div class="text-gray-300 text-xl">→</div>
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-bold text-gray-600 transition-all">4</div>
+                        <span class="text-sm text-gray-600 font-medium">Check-ins sent</span>
+                    </div>
+                    <div class="text-gray-300 text-xl">→</div>
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-bold text-gray-600 transition-all">5</div>
+                        <span class="text-sm text-gray-600 font-medium">Blockers resolved</span>
+                    </div>
+                    <div class="text-gray-300 text-xl">→</div>
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-bold text-gray-600 transition-all">6</div>
+                        <span class="text-sm text-gray-600 font-medium">Outcomes achieved</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Follow-up Summary Generator -->
+        <section id="summarySection" class="mb-16">
+            <div class="section-header">
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-3xl font-bold text-gray-900">Client Summary</h2>
+                    <span id="summaryStep" class="step-indicator hidden">Step 7 of 7</span>
+                </div>
+                <p class="text-gray-600 text-lg">Generate professional follow-up summaries that keep clients engaged</p>
+            </div>
+            <div class="premium-card rounded-xl p-8 shadow-sm">
+                <button id="generateSummaryBtn" class="px-8 py-4 btn-primary text-white rounded-xl font-semibold shadow-lg mb-6">
+                    Generate Client Summary
+                </button>
+                <div id="summaryOutput" class="hidden slide-up">
+                    <div class="bg-gradient-to-br from-gray-50 to-white rounded-xl p-8 space-y-6 text-sm border-2 border-gray-100">
+                        <div id="summaryContent"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Integrations Section -->
+        <section id="integrationsSection" class="mb-16">
+            <div class="section-header">
+                <h2 class="text-3xl font-bold text-gray-900 mb-2">Integrations</h2>
+                <p class="text-gray-600 text-lg">Connect with the tools your clients already use</p>
+            </div>
+            <div class="flex flex-wrap gap-3">
+                <button class="integration-chip px-6 py-3 border-2 border-gray-300 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-all shadow-sm" data-integration="calendar">
+                    Google Calendar
+                </button>
+                <button class="integration-chip px-6 py-3 border-2 border-gray-300 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-all shadow-sm" data-integration="slack">
+                    Slack
+                </button>
+                <button class="integration-chip px-6 py-3 border-2 border-gray-300 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-all shadow-sm" data-integration="clickup">
+                    ClickUp
+                </button>
+                <button class="integration-chip px-6 py-3 border-2 border-gray-300 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-all shadow-sm" data-integration="notion">
+                    Notion
+                </button>
+                <button class="integration-chip px-6 py-3 border-2 border-gray-300 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-all shadow-sm" data-integration="email">
+                    Email
+                </button>
+            </div>
+        </section>
+
+        <!-- CTA Card -->
+        <section class="mb-16">
+            <div class="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white rounded-2xl p-12 text-center shadow-2xl">
+                <h2 class="text-3xl font-bold mb-4">Want this for your clients?</h2>
+                <p class="text-gray-300 mb-8 text-lg max-w-2xl mx-auto">Built as a lightweight system your clients actually use. No complex setup. No training required. Just execution.</p>
+                <button class="px-10 py-4 bg-white text-gray-900 rounded-xl font-bold hover:bg-gray-100 transition-all shadow-xl text-lg">
+                    Book 15-min build call
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // State management
+        let actions = [];
+        let checkIns = [];
+        let participants = [];
+        let sessionCreated = false;
+        let autoDemoRunning = false;
+        let currentStep = 0;
+        const totalSteps = 7;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            setupEventListeners();
+            setupDragAndDrop();
+            setupParticipantInput();
+            setupIntegrations();
+            setTodayDate();
+        });
+
+        function setTodayDate() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('sessionDate').value = today;
+        }
+
+        function setupEventListeners() {
+            document.getElementById('createSessionBtn').addEventListener('click', () => {
+                document.getElementById('sessionModal').classList.remove('hidden');
+            });
+
+            document.getElementById('closeModalBtn').addEventListener('click', () => {
+                document.getElementById('sessionModal').classList.add('hidden');
+            });
+
+            document.getElementById('generatePlanBtn').addEventListener('click', generateActionPlan);
+            document.getElementById('generateSummaryBtn').addEventListener('click', generateSummary);
+            document.getElementById('autoDemoBtn').addEventListener('click', startAutoDemo);
+        }
+
+        function setupParticipantInput() {
+            const input = document.getElementById('participantInput');
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && input.value.trim()) {
+                    addParticipant(input.value.trim());
+                    input.value = '';
+                }
+            });
+        }
+
+        function addParticipant(name) {
+            if (participants.includes(name)) return;
+            participants.push(name);
+            const tag = document.createElement('span');
+            tag.className = 'inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium';
+            tag.innerHTML = `${name} <button class="ml-1 text-gray-500 hover:text-gray-700 font-bold" onclick="removeParticipant('${name}')">×</button>`;
+            tag.dataset.name = name;
+            document.getElementById('participantTags').appendChild(tag);
+        }
+
+        function removeParticipant(name) {
+            participants = participants.filter(p => p !== name);
+            document.querySelector(`[data-name="${name}"]`).remove();
+        }
+
+        function showTooltip(element, message, position = 'bottom') {
+            const tooltip = document.createElement('div');
+            tooltip.className = `tooltip-bubble ${position}`;
+            tooltip.innerHTML = `
+                <div class="font-semibold mb-1">${message.title || ''}</div>
+                <div class="text-sm text-gray-300 leading-relaxed">${message.text}</div>
+            `;
+
+            const rect = element.getBoundingClientRect();
+            const tooltipRect = { width: 320, height: 100 };
+            
+            let top, left;
+            switch(position) {
+                case 'top':
+                    top = rect.top - tooltipRect.height - 20;
+                    left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+                    break;
+                case 'bottom':
+                    top = rect.bottom + 20;
+                    left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+                    break;
+                case 'left':
+                    top = rect.top + (rect.height / 2) - (tooltipRect.height / 2);
+                    left = rect.left - tooltipRect.width - 20;
+                    break;
+                case 'right':
+                    top = rect.top + (rect.height / 2) - (tooltipRect.height / 2);
+                    left = rect.right + 20;
+                    break;
+            }
+
+            tooltip.style.position = 'fixed';
+            tooltip.style.top = `${Math.max(20, top)}px`;
+            tooltip.style.left = `${Math.max(20, Math.min(left, window.innerWidth - tooltipRect.width - 20))}px`;
+
+            document.getElementById('tooltipContainer').innerHTML = '';
+            document.getElementById('tooltipContainer').appendChild(tooltip);
+            
+            return tooltip;
+        }
+
+        function highlightElement(element) {
+            element.classList.add('highlight-element');
+            return () => element.classList.remove('highlight-element');
+        }
+
+        function updateDemoProgress(step) {
+            const percentage = (step / totalSteps) * 100;
+            document.getElementById('demoProgressBar').style.width = `${percentage}%`;
+        }
+
+        function showStepIndicator(sectionId, step) {
+            const indicators = ['actionBoardStep', 'checkInStep', 'dashboardStep', 'summaryStep'];
+            indicators.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
+            
+            const indicator = document.getElementById(sectionId + 'Step');
+            if (indicator) {
+                indicator.textContent = `Step ${step} of ${totalSteps}`;
+                indicator.classList.remove('hidden');
+            }
+        }
+
+        function generateActionPlan() {
+            const sessionName = document.getElementById('sessionName').value || 'Exec Alignment Workshop';
+            const date = document.getElementById('sessionDate').value || new Date().toISOString().split('T')[0];
+            
+            if (!sessionCreated) {
+                sessionCreated = true;
+                updateTimeline(1);
+            }
+
+            const actionTemplates = [
+                { title: 'Finalize Q1 budget and headcount plan', owner: 'Sarah Chen', priority: 'High', dueDays: 7, cadence: 'Weekly' },
+                { title: 'Set up weekly exec standup meeting', owner: 'Mike Johnson', priority: 'Medium', dueDays: 3, cadence: 'Weekly' },
+                { title: 'Create customer success dashboard', owner: 'Alex Rivera', priority: 'High', dueDays: 14, cadence: 'Bi-weekly' },
+                { title: 'Review and update hiring plan', owner: 'Sarah Chen', priority: 'Medium', dueDays: 10, cadence: 'Weekly' },
+                { title: 'Draft customer feedback survey', owner: 'Alex Rivera', priority: 'Low', dueDays: 5, cadence: 'Weekly' },
+                { title: 'Schedule Q1 planning offsite', owner: 'Mike Johnson', priority: 'High', dueDays: 21, cadence: 'One-time' }
+            ];
+
+            actions = actionTemplates.map((template, index) => ({
+                id: `action-${Date.now()}-${index}`,
+                title: template.title,
+                owner: template.owner,
+                ownerInitials: getInitials(template.owner),
+                dueDate: addDays(date, template.dueDays),
+                priority: template.priority,
+                status: 'committed',
+                cadence: template.cadence,
+                risk: calculateRisk(template.priority, template.dueDays),
+                createdAt: new Date().toISOString()
+            }));
+
+            updateTimeline(2);
+            renderActions();
+            updateKPIs();
+            scheduleCheckIns();
+            document.getElementById('sessionModal').classList.add('hidden');
+        }
+
+        function getInitials(name) {
+            return name.split(' ').map(n => n[0]).join('').toUpperCase();
+        }
+
+        function calculateRisk(priority, dueDays) {
+            if (priority === 'High' && dueDays <= 7) return 'High';
+            if (priority === 'High' || dueDays <= 7) return 'Medium';
+            return 'Low';
+        }
+
+        function addDays(dateString, days) {
+            const date = new Date(dateString);
+            date.setDate(date.getDate() + days);
+            return date.toISOString().split('T')[0];
+        }
+
+        function renderActions() {
+            const columns = {
+                'committed': document.getElementById('committedCards'),
+                'in-progress': document.getElementById('inProgressCards'),
+                'blocked': document.getElementById('blockedCards'),
+                'done': document.getElementById('doneCards')
+            };
+
+            Object.values(columns).forEach(col => col.innerHTML = '');
+
+            actions.forEach(action => {
+                const card = createActionCard(action);
+                columns[action.status].appendChild(card);
+            });
+
+            updateColumnCounts();
+        }
+
+        function createActionCard(action) {
+            const card = document.createElement('div');
+            card.className = 'kanban-card premium-card rounded-xl p-4 cursor-move fade-in';
+            card.draggable = true;
+            card.dataset.actionId = action.id;
+            
+            const riskColors = {
+                'Low': 'bg-green-100 text-green-700',
+                'Medium': 'bg-yellow-100 text-yellow-700',
+                'High': 'bg-red-100 text-red-700'
+            };
+
+            card.innerHTML = `
+                <div class="flex items-start justify-between mb-2">
+                    <h4 class="font-semibold text-gray-900 text-sm flex-1">${action.title}</h4>
+                </div>
+                <div class="flex items-center justify-between mt-3">
+                    <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center text-xs font-bold text-gray-700">
+                            ${action.ownerInitials}
+                        </div>
+                        <span class="text-xs text-gray-600 font-medium">${action.owner}</span>
+                    </div>
+                    <span class="text-xs px-2.5 py-1 rounded-full font-semibold ${riskColors[action.risk]}">${action.risk}</span>
+                </div>
+                <div class="text-xs text-gray-500 mt-2 font-medium">Due: ${formatDate(action.dueDate)}</div>
+            `;
+
+            card.addEventListener('dragstart', handleDragStart);
+            card.addEventListener('dragend', handleDragEnd);
+
+            return card;
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+
+        function updateColumnCounts() {
+            const counts = {
+                'committed': actions.filter(a => a.status === 'committed').length,
+                'in-progress': actions.filter(a => a.status === 'in-progress').length,
+                'blocked': actions.filter(a => a.status === 'blocked').length,
+                'done': actions.filter(a => a.status === 'done').length
+            };
+
+            document.getElementById('committedCount').textContent = counts['committed'];
+            document.getElementById('inProgressCount').textContent = counts['in-progress'];
+            document.getElementById('blockedCount').textContent = counts['blocked'];
+            document.getElementById('doneCount').textContent = counts['done'];
+        }
+
+        function setupDragAndDrop() {
+            const columns = document.querySelectorAll('.kanban-column');
+            columns.forEach(column => {
+                column.addEventListener('dragover', handleDragOver);
+                column.addEventListener('drop', handleDrop);
+                column.addEventListener('dragleave', handleDragLeave);
+            });
+        }
+
+        let draggedElement = null;
+
+        function handleDragStart(e) {
+            draggedElement = e.target;
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+            document.querySelectorAll('.kanban-column').forEach(col => col.classList.remove('drag-over'));
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            e.currentTarget.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            
+            if (draggedElement) {
+                const actionId = draggedElement.dataset.actionId;
+                const newStatus = e.currentTarget.dataset.column;
+                const action = actions.find(a => a.id === actionId);
+                
+                if (action && action.status !== newStatus) {
+                    action.status = newStatus;
+                    if (newStatus === 'blocked' && !action.blockerNote) {
+                        action.blockerNote = 'Blocked during check-in';
+                    }
+                    renderActions();
+                    updateKPIs();
+                }
+            }
+        }
+
+        function scheduleCheckIns() {
+            const activeActions = actions.filter(a => a.status !== 'done');
+            checkIns = activeActions.slice(0, 3).map(action => ({
+                id: `checkin-${Date.now()}-${Math.random()}`,
+                actionId: action.id,
+                actionTitle: action.title,
+                owner: action.owner,
+                question: 'Are you on track?',
+                status: 'pending',
+                response: null,
+                note: ''
+            }));
+
+            renderCheckIns();
+        }
+
+        function renderCheckIns() {
+            const container = document.getElementById('checkInList');
+            
+            if (checkIns.length === 0) {
+                container.innerHTML = '<div class="text-center py-16 text-gray-500 bg-white rounded-xl border-2 border-dashed border-gray-200"><svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg><p class="text-lg">No check-ins scheduled yet. Create a session to get started.</p></div>';
+                return;
+            }
+
+            container.innerHTML = checkIns.map(checkIn => {
+                const action = actions.find(a => a.id === checkIn.actionId);
+                const responseButtons = checkIn.status === 'pending' ? `
+                    <div class="flex gap-2 mb-3">
+                        <button onclick="respondToCheckIn('${checkIn.id}', 'on-track')" class="px-5 py-2.5 bg-green-100 text-green-700 rounded-lg text-sm font-semibold hover:bg-green-200 transition-all shadow-sm">
+                            On Track
+                        </button>
+                        <button onclick="respondToCheckIn('${checkIn.id}', 'stuck')" class="px-5 py-2.5 bg-red-100 text-red-700 rounded-lg text-sm font-semibold hover:bg-red-200 transition-all shadow-sm">
+                            Stuck
+                        </button>
+                        <button onclick="respondToCheckIn('${checkIn.id}', 'need-help')" class="px-5 py-2.5 bg-yellow-100 text-yellow-700 rounded-lg text-sm font-semibold hover:bg-yellow-200 transition-all shadow-sm">
+                            Need Help
+                        </button>
+                    </div>
+                    <textarea id="note-${checkIn.id}" class="w-full px-4 py-2 border-2 border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all" rows="2" placeholder="Optional note..."></textarea>
+                ` : `
+                    <div class="text-sm text-gray-600">
+                        Response: <span class="font-semibold">${checkIn.response === 'on-track' ? 'On Track' : checkIn.response === 'stuck' ? 'Stuck' : 'Need Help'}</span>
+                        ${checkIn.note ? `<div class="mt-2 text-gray-500 bg-gray-50 p-3 rounded-lg">${checkIn.note}</div>` : ''}
+                    </div>
+                `;
+
+                return `
+                    <div class="premium-card rounded-xl p-6 slide-in shadow-sm">
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="flex-1">
+                                <h4 class="font-bold text-gray-900 mb-1">${checkIn.actionTitle}</h4>
+                                <p class="text-sm text-gray-600">Owner: ${checkIn.owner}</p>
+                            </div>
+                            <span class="text-xs px-3 py-1 rounded-full font-semibold ${checkIn.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}">
+                                ${checkIn.status === 'completed' ? 'Completed' : 'Pending'}
+                            </span>
+                        </div>
+                        <div class="text-sm text-gray-700 mb-3 font-medium">${checkIn.question}</div>
+                        ${responseButtons}
+                    </div>
+                `;
+            }).join('');
+
+            checkIns.forEach(checkIn => {
+                if (checkIn.status === 'pending') {
+                    const textarea = document.getElementById(`note-${checkIn.id}`);
+                    if (textarea) {
+                        textarea.addEventListener('blur', () => {
+                            checkIn.note = textarea.value;
+                        });
+                    }
+                }
+            });
+        }
+
+        function respondToCheckIn(checkInId, response) {
+            const checkIn = checkIns.find(c => c.id === checkInId);
+            if (!checkIn) return;
+
+            const textarea = document.getElementById(`note-${checkIn.id}`);
+            if (textarea) {
+                checkIn.note = textarea.value;
+            }
+
+            checkIn.response = response;
+            checkIn.status = 'completed';
+
+            if (response === 'stuck') {
+                const action = actions.find(a => a.id === checkIn.actionId);
+                if (action) {
+                    action.status = 'blocked';
+                    action.blockerNote = checkIn.note || 'Blocked during check-in';
+                }
+            }
+
+            renderCheckIns();
+            renderActions();
+            updateKPIs();
+        }
+
+        window.respondToCheckIn = respondToCheckIn;
+
+        function updateKPIs() {
+            const totalActions = actions.length;
+            const completedActions = actions.filter(a => a.status === 'done').length;
+            const completionRate = totalActions > 0 ? Math.round((completedActions / totalActions) * 100) : 0;
+            const blockers = actions.filter(a => a.status === 'blocked').length;
+            
+            const doneActions = actions.filter(a => a.status === 'done');
+            const avgTimeToClose = doneActions.length > 0 
+                ? Math.round(doneActions.reduce((sum, a) => {
+                    const created = new Date(a.createdAt);
+                    const now = new Date();
+                    return sum + Math.floor((now - created) / (1000 * 60 * 60 * 24));
+                }, 0) / doneActions.length)
+                : 0;
+
+            const clarityScore = Math.min(100, Math.round(completionRate * 0.7 + (blockers === 0 ? 30 : Math.max(0, 30 - blockers * 10))));
+
+            animateValue('kpiActions', parseInt(document.getElementById('kpiActions').textContent) || 0, totalActions);
+            animateValue('kpiCompletion', parseInt(document.getElementById('kpiCompletion').textContent) || 0, completionRate);
+            animateValue('kpiBlockers', parseInt(document.getElementById('kpiBlockers').textContent) || 0, blockers);
+            animateValue('kpiTimeToClose', parseInt(document.getElementById('kpiTimeToClose').textContent) || 0, avgTimeToClose);
+            animateValue('kpiClarity', parseInt(document.getElementById('kpiClarity').textContent) || 0, clarityScore);
+        }
+
+        function animateValue(id, start, end) {
+            const element = document.getElementById(id);
+            const duration = 800;
+            const startTime = performance.now();
+            const isPercentage = id === 'kpiCompletion';
+            
+            function update(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const current = Math.round(start + (end - start) * progress);
+                element.textContent = current + (isPercentage ? '%' : '');
+                
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                }
+            }
+            
+            requestAnimationFrame(update);
+        }
+
+        function updateTimeline(step) {
+            const steps = document.querySelectorAll('#timeline > div:not(.text-gray-300)');
+            steps.forEach((stepEl, index) => {
+                if (index < step) {
+                    const circle = stepEl.querySelector('div');
+                    circle.classList.remove('bg-gray-200', 'text-gray-600');
+                    circle.classList.add('bg-gradient-to-br', 'from-blue-600', 'to-purple-600', 'text-white', 'shadow-lg');
+                    stepEl.querySelector('span').classList.remove('text-gray-600');
+                    stepEl.querySelector('span').classList.add('text-gray-900', 'font-bold');
+                }
+            });
+        }
+
+        function generateSummary() {
+            const committed = actions.filter(a => a.status === 'committed');
+            const inProgress = actions.filter(a => a.status === 'in-progress');
+            const blocked = actions.filter(a => a.status === 'blocked');
+            const done = actions.filter(a => a.status === 'done');
+
+            const summary = `
+                <div class="space-y-6">
+                    <div>
+                        <h3 class="font-bold text-gray-900 mb-3 text-lg">What We Decided</h3>
+                        <ul class="list-disc list-inside text-gray-700 space-y-2 ml-2">
+                            <li>Align on Q1 revenue targets and resource allocation</li>
+                            <li>Establish weekly leadership sync cadence</li>
+                            <li>Define customer success metrics and ownership</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-gray-900 mb-3 text-lg">What's Moving</h3>
+                        <ul class="list-disc list-inside text-gray-700 space-y-2 ml-2">
+                            ${inProgress.map(a => `<li>${a.title} (${a.owner}, due ${formatDate(a.dueDate)})</li>`).join('')}
+                            ${inProgress.length === 0 ? '<li class="text-gray-500">No items in progress</li>' : ''}
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-gray-900 mb-3 text-lg">What's Stuck</h3>
+                        <ul class="list-disc list-inside text-gray-700 space-y-2 ml-2">
+                            ${blocked.map(a => `<li>${a.title} (${a.owner})${a.blockerNote ? `: ${a.blockerNote}` : ''}</li>`).join('')}
+                            ${blocked.length === 0 ? '<li class="text-gray-500">No blockers</li>' : ''}
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-gray-900 mb-3 text-lg">Next Week Focus</h3>
+                        <ul class="list-disc list-inside text-gray-700 space-y-2 ml-2">
+                            ${committed.slice(0, 3).map(a => `<li>${a.title} (${a.owner}, due ${formatDate(a.dueDate)})</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-gray-900 mb-3 text-lg">Owners and Due Dates</h3>
+                        <div class="space-y-3">
+                            ${[...new Set(actions.map(a => a.owner))].map(owner => {
+                                const ownerActions = actions.filter(a => a.owner === owner && a.status !== 'done');
+                                return `<div class="text-gray-700 bg-gray-50 p-3 rounded-lg"><strong class="text-gray-900">${owner}:</strong> ${ownerActions.map(a => `${a.title} (${formatDate(a.dueDate)})`).join(', ')}</div>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('summaryContent').innerHTML = summary;
+            document.getElementById('summaryOutput').classList.remove('hidden');
+        }
+
+        function setupIntegrations() {
+            const chips = document.querySelectorAll('.integration-chip');
+            chips.forEach(chip => {
+                chip.addEventListener('click', () => {
+                    if (chip.classList.contains('bg-gray-900')) {
+                        chip.classList.remove('bg-gray-900', 'text-white');
+                        chip.classList.add('border-gray-300', 'text-gray-900');
+                    } else {
+                        chip.classList.add('bg-gray-900', 'text-white');
+                        chip.classList.remove('border-gray-300', 'text-gray-900');
+                    }
+                });
+            });
+        }
+
+        async function startAutoDemo() {
+            if (autoDemoRunning) return;
+            autoDemoRunning = true;
+            currentStep = 0;
+            
+            const btn = document.getElementById('autoDemoBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="flex items-center gap-2"><svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Demo Running...</span>';
+            
+            document.getElementById('demoProgress').classList.remove('hidden');
+            document.getElementById('demoOverlay').classList.remove('hidden');
+            updateDemoProgress(0);
+
+            // Step 1: Create session
+            currentStep = 1;
+            updateDemoProgress(1);
+            showStepIndicator('actionBoard', 1);
+            
+            const modal = document.getElementById('sessionModal');
+            modal.classList.remove('hidden');
+            await sleep(300);
+            
+            document.getElementById('sessionName').value = 'Exec Alignment Workshop';
+            document.getElementById('sessionDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('coachNotes').value = 'Strategic alignment session focused on Q1 execution. Key decisions around resource allocation and team structure.';
+            addParticipant('Sarah Chen');
+            await sleep(400);
+            addParticipant('Mike Johnson');
+            await sleep(400);
+            addParticipant('Alex Rivera');
+            await sleep(500);
+
+            const modalEl = document.querySelector('#sessionModal .bg-white');
+            const unhighlight = highlightElement(modalEl);
+            showTooltip(modalEl, {
+                title: 'Step 1: Session Capture',
+                text: 'Every coaching session starts here. Capture decisions, notes, and participants. The system automatically converts this into an execution plan.'
+            }, 'bottom');
+            await sleep(2500);
+            unhighlight();
+            document.getElementById('tooltipContainer').innerHTML = '';
+
+            // Step 2: Generate action plan
+            currentStep = 2;
+            updateDemoProgress(2);
+            showStepIndicator('actionBoard', 2);
+            
+            generateActionPlan();
+            updateTimeline(2);
+            await sleep(800);
+
+            const actionBoard = document.getElementById('actionBoard');
+            const actionBoardRect = actionBoard.getBoundingClientRect();
+            window.scrollTo({ top: actionBoardRect.top - 100, behavior: 'smooth' });
+            await sleep(600);
+
+            const unhighlight2 = highlightElement(actionBoard);
+            showTooltip(actionBoard, {
+                title: 'Step 2: Automatic Action Plan',
+                text: 'AI analyzes your session and creates structured action items with owners, due dates, and priorities. No manual entry required.'
+            }, 'bottom');
+            await sleep(2500);
+            unhighlight2();
+            document.getElementById('tooltipContainer').innerHTML = '';
+
+            // Step 3: Move one to In Progress
+            currentStep = 3;
+            updateDemoProgress(3);
+            showStepIndicator('actionBoard', 3);
+            
+            const actionToProgress = actions.find(a => a.status === 'committed');
+            if (actionToProgress) {
+                const card = document.querySelector(`[data-action-id="${actionToProgress.id}"]`);
+                if (card) {
+                    const unhighlight3 = highlightElement(card);
+                    showTooltip(card, {
+                        title: 'Step 3: Drag & Drop Workflow',
+                        text: 'Team members update status by dragging cards. Real-time visibility for leadership without status meetings.'
+                    }, 'right');
+                    await sleep(2000);
+                    unhighlight3();
+                    document.getElementById('tooltipContainer').innerHTML = '';
+                }
+                
+                actionToProgress.status = 'in-progress';
+                renderActions();
+                updateKPIs();
+                updateTimeline(3);
+                await sleep(800);
+            }
+
+            // Step 4: Trigger check-ins
+            currentStep = 4;
+            updateDemoProgress(4);
+            showStepIndicator('checkIn', 4);
+            
+            scheduleCheckIns();
+            updateTimeline(4);
+            await sleep(800);
+
+            const checkInSection = document.getElementById('checkInSection');
+            const checkInRect = checkInSection.getBoundingClientRect();
+            window.scrollTo({ top: checkInRect.top - 100, behavior: 'smooth' });
+            await sleep(600);
+
+            const unhighlight4 = highlightElement(checkInSection);
+            showTooltip(checkInSection, {
+                title: 'Step 4: Automated Check-ins',
+                text: 'System automatically sends check-ins based on cadence. Team responds with one click. Blockers are surfaced immediately.'
+            }, 'bottom');
+            await sleep(2500);
+            unhighlight4();
+            document.getElementById('tooltipContainer').innerHTML = '';
+
+            // Step 5: Respond to check-ins
+            currentStep = 5;
+            updateDemoProgress(5);
+            showStepIndicator('checkIn', 5);
+            
+            if (checkIns.length > 0) {
+                respondToCheckIn(checkIns[0].id, 'on-track');
+                await sleep(1000);
+            }
+            if (checkIns.length > 1) {
+                const stuckCheckIn = checkIns[1];
+                const textarea = document.getElementById(`note-${stuckCheckIn.id}`);
+                if (textarea) {
+                    textarea.value = 'Waiting on budget approval from finance';
+                    await sleep(500);
+                }
+                respondToCheckIn(stuckCheckIn.id, 'stuck');
+                updateTimeline(5);
+                await sleep(1200);
+            }
+
+            // Step 6: Resolve blocker and move to Done
+            currentStep = 6;
+            updateDemoProgress(6);
+            showStepIndicator('dashboard', 6);
+            
+            const blockedAction = actions.find(a => a.status === 'blocked');
+            if (blockedAction) {
+                blockedAction.status = 'in-progress';
+                renderActions();
+                await sleep(600);
+                blockedAction.status = 'done';
+                renderActions();
+                updateKPIs();
+                updateTimeline(6);
+            }
+
+            const dashboard = document.getElementById('dashboard');
+            const dashboardRect = dashboard.getBoundingClientRect();
+            window.scrollTo({ top: dashboardRect.top - 100, behavior: 'smooth' });
+            await sleep(600);
+
+            const unhighlight5 = highlightElement(dashboard);
+            showTooltip(dashboard, {
+                title: 'Step 5: Leadership Dashboard',
+                text: 'Real-time KPIs and clarity score give you instant visibility. No spreadsheets. No status meetings. Just execution.'
+            }, 'bottom');
+            await sleep(2500);
+            unhighlight5();
+            document.getElementById('tooltipContainer').innerHTML = '';
+
+            // Step 7: Generate summary
+            currentStep = 7;
+            updateDemoProgress(7);
+            showStepIndicator('summary', 7);
+            
+            const summarySection = document.getElementById('summarySection');
+            const summaryRect = summarySection.getBoundingClientRect();
+            window.scrollTo({ top: summaryRect.top - 100, behavior: 'smooth' });
+            await sleep(600);
+
+            const summaryBtn = document.getElementById('generateSummaryBtn');
+            const unhighlight6 = highlightElement(summaryBtn);
+            showTooltip(summaryBtn, {
+                title: 'Step 6: Client Summary',
+                text: 'Generate professional follow-up summaries automatically. Keep clients engaged between sessions with clear progress updates.'
+            }, 'top');
+            await sleep(2000);
+            unhighlight6();
+            document.getElementById('tooltipContainer').innerHTML = '';
+
+            generateSummary();
+            await sleep(1000);
+
+            // Final step
+            updateDemoProgress(totalSteps);
+            await sleep(1000);
+
+            // Cleanup
+            document.getElementById('demoProgress').classList.add('hidden');
+            document.getElementById('demoOverlay').classList.add('hidden');
+            document.getElementById('tooltipContainer').innerHTML = '';
+            
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            await sleep(500);
+
+            btn.disabled = false;
+            btn.innerHTML = '<span class="flex items-center gap-2"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>Start Guided Demo</span>';
+            autoDemoRunning = false;
+
+            // Hide step indicators
+            ['actionBoardStep', 'checkInStep', 'dashboardStep', 'summaryStep'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+    </script>
+</body>
+</html>
