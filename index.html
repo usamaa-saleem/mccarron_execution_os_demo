@@ -511,19 +511,18 @@
             document.querySelector(`[data-name="${name}"]`).remove();
         }
 
-        function showTooltip(element, message, position = 'bottom') {
-            const tooltip = document.createElement('div');
-            tooltip.className = `tooltip-bubble ${position}`;
-            tooltip.innerHTML = `
-                <div class="font-semibold mb-1">${message.title || ''}</div>
-                <div class="text-sm text-gray-300 leading-relaxed">${message.text}</div>
-            `;
+        let currentTooltip = null;
+        let currentTooltipElement = null;
+        let currentTooltipPosition = null;
 
-            const rect = element.getBoundingClientRect();
-            const tooltipRect = { width: 320, height: 100 };
+        function repositionTooltip() {
+            if (!currentTooltip || !currentTooltipElement) return;
+            
+            const rect = currentTooltipElement.getBoundingClientRect();
+            const tooltipRect = { width: 320, height: 120 };
             
             let top, left;
-            switch(position) {
+            switch(currentTooltipPosition) {
                 case 'top':
                     top = rect.top - tooltipRect.height - 20;
                     left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
@@ -542,14 +541,70 @@
                     break;
             }
 
-            tooltip.style.position = 'fixed';
-            tooltip.style.top = `${Math.max(20, top)}px`;
-            tooltip.style.left = `${Math.max(20, Math.min(left, window.innerWidth - tooltipRect.width - 20))}px`;
+            // Ensure tooltip stays within viewport
+            const padding = 20;
+            top = Math.max(padding, Math.min(top, window.innerHeight - tooltipRect.height - padding));
+            left = Math.max(padding, Math.min(left, window.innerWidth - tooltipRect.width - padding));
 
-            document.getElementById('tooltipContainer').innerHTML = '';
+            currentTooltip.style.top = `${top}px`;
+            currentTooltip.style.left = `${left}px`;
+        }
+
+        function showTooltip(element, message, position = 'bottom') {
+            // Clear any existing tooltip
+            if (currentTooltip) {
+                clearTooltip();
+            }
+
+            const tooltip = document.createElement('div');
+            tooltip.className = `tooltip-bubble ${position}`;
+            tooltip.innerHTML = `
+                <div class="font-semibold mb-1">${message.title || ''}</div>
+                <div class="text-sm text-gray-300 leading-relaxed">${message.text}</div>
+            `;
+
+            tooltip.style.position = 'fixed';
+            tooltip.style.zIndex = '10000';
+            
+            // Store references for repositioning
+            currentTooltip = tooltip;
+            currentTooltipElement = element;
+            currentTooltipPosition = position;
+
+            // Calculate initial position
+            repositionTooltip();
+
             document.getElementById('tooltipContainer').appendChild(tooltip);
             
+            // Reposition on scroll and resize
+            const repositionHandler = () => repositionTooltip();
+            window.addEventListener('scroll', repositionHandler, { passive: true });
+            window.addEventListener('resize', repositionHandler);
+            
+            // Also reposition after a short delay to catch any layout shifts
+            setTimeout(() => {
+                if (currentTooltip === tooltip) {
+                    repositionTooltip();
+                }
+            }, 100);
+            
+            // Store cleanup function
+            tooltip._cleanup = () => {
+                window.removeEventListener('scroll', repositionHandler);
+                window.removeEventListener('resize', repositionHandler);
+            };
+            
             return tooltip;
+        }
+
+        function clearTooltip() {
+            if (currentTooltip && currentTooltip._cleanup) {
+                currentTooltip._cleanup();
+            }
+            clearTooltip();
+            currentTooltip = null;
+            currentTooltipElement = null;
+            currentTooltipPosition = null;
         }
 
         function highlightElement(element) {
@@ -991,6 +1046,18 @@
             document.getElementById('demoProgress').classList.remove('hidden');
             document.getElementById('demoOverlay').classList.remove('hidden');
             updateDemoProgress(0);
+            
+            // Initial tooltip: Welcome to demo
+            await sleep(500);
+            const progressBar = document.getElementById('demoProgress');
+            let unhighlight = highlightElement(progressBar);
+            showTooltip(progressBar, {
+                title: 'Guided Demo Started',
+                text: 'Watch as we walk through the complete flow from session capture to execution. Tooltips will explain each step. Take your time reading them.'
+            }, 'bottom');
+            await sleep(5000);
+            unhighlight();
+            clearTooltip();
 
             // Step 1: Create session
             currentStep = 1;
@@ -1001,25 +1068,80 @@
             modal.classList.remove('hidden');
             await sleep(500);
             
-            document.getElementById('sessionName').value = 'Exec Alignment Workshop';
-            document.getElementById('sessionDate').value = new Date().toISOString().split('T')[0];
-            document.getElementById('coachNotes').value = 'Strategic alignment session focused on Q1 execution. Key decisions around resource allocation and team structure.';
-            addParticipant('Sarah Chen');
-            await sleep(600);
-            addParticipant('Mike Johnson');
-            await sleep(600);
-            addParticipant('Alex Rivera');
-            await sleep(800);
-
+            // Tooltip: Modal opened
             const modalEl = document.querySelector('#sessionModal .bg-white');
-            const unhighlight = highlightElement(modalEl);
+            unhighlight = highlightElement(modalEl);
             showTooltip(modalEl, {
                 title: 'Step 1: Session Capture',
-                text: 'Every coaching session starts here. Capture decisions, notes, and participants. The system automatically converts this into an execution plan.'
+                text: 'Every coaching session starts here. Simply fill in the details from your session and the system handles the rest.'
             }, 'bottom');
-            await sleep(6000);
+            await sleep(4000);
             unhighlight();
-            document.getElementById('tooltipContainer').innerHTML = '';
+            clearTooltip();
+            
+            // Fill session name
+            const sessionNameInput = document.getElementById('sessionName');
+            sessionNameInput.value = 'Exec Alignment Workshop';
+            sessionNameInput.dispatchEvent(new Event('input', { bubbles: true }));
+            await sleep(300);
+            
+            // Tooltip: Session name
+            unhighlight = highlightElement(sessionNameInput);
+            showTooltip(sessionNameInput, {
+                title: 'Session Name',
+                text: 'Give your session a clear name. This helps track which coaching session generated which actions.'
+            }, 'right');
+            await sleep(3500);
+            unhighlight();
+            clearTooltip();
+            
+            document.getElementById('sessionDate').value = new Date().toISOString().split('T')[0];
+            
+            // Fill coach notes
+            const coachNotes = document.getElementById('coachNotes');
+            coachNotes.value = 'Strategic alignment session focused on Q1 execution. Key decisions around resource allocation and team structure.';
+            await sleep(300);
+            
+            // Tooltip: Coach notes
+            unhighlight = highlightElement(coachNotes);
+            showTooltip(coachNotes, {
+                title: 'Coach Notes',
+                text: 'Add your session notes here. The AI will extract decisions, action items, and context automatically.'
+            }, 'right');
+            await sleep(4000);
+            unhighlight();
+            clearTooltip();
+            
+            // Add participants with tooltips
+            addParticipant('Sarah Chen');
+            await sleep(400);
+            const participant1 = document.querySelector('[data-name="Sarah Chen"]');
+            if (participant1) {
+                unhighlight = highlightElement(participant1);
+                showTooltip(participant1, {
+                    title: 'Participants',
+                    text: 'Add all session participants. They\'ll automatically be assigned action items and receive check-ins.'
+                }, 'top');
+                await sleep(3000);
+                unhighlight();
+                clearTooltip();
+            }
+            
+            addParticipant('Mike Johnson');
+            await sleep(400);
+            addParticipant('Alex Rivera');
+            await sleep(600);
+            
+            // Tooltip: Generate button
+            const generateBtn = document.getElementById('generatePlanBtn');
+            unhighlight = highlightElement(generateBtn);
+            showTooltip(generateBtn, {
+                title: 'Generate Action Plan',
+                text: 'One click transforms your session notes into a structured execution plan with owners, due dates, and priorities.'
+            }, 'top');
+            await sleep(4000);
+            unhighlight();
+            clearTooltip();
 
             // Step 2: Generate action plan
             currentStep = 2;
@@ -1027,22 +1149,63 @@
             showStepIndicator('actionBoard', 2);
             
             generateActionPlan();
+            document.getElementById('sessionModal').classList.add('hidden');
+            await sleep(800);
+            
+            // Tooltip: Timeline step 1
+            const timelineStep1 = document.querySelectorAll('#timeline > div:not(.text-gray-300)')[0];
+            if (timelineStep1) {
+                unhighlight = highlightElement(timelineStep1);
+                showTooltip(timelineStep1, {
+                    title: 'Timeline: Session Created',
+                    text: 'Watch the timeline track your progress from session to execution automatically.'
+                }, 'top');
+                await sleep(3000);
+                unhighlight();
+                clearTooltip();
+            }
+            
             updateTimeline(2);
-            await sleep(1200);
+            await sleep(600);
+            
+            // Tooltip: Timeline step 2
+            const timelineStep2 = document.querySelectorAll('#timeline > div:not(.text-gray-300)')[1];
+            if (timelineStep2) {
+                unhighlight = highlightElement(timelineStep2);
+                showTooltip(timelineStep2, {
+                    title: 'Timeline: Action Plan Generated',
+                    text: 'The system has automatically created 6 action items from your session notes.'
+                }, 'top');
+                await sleep(3500);
+                unhighlight();
+                clearTooltip();
+            }
 
             const actionBoard = document.getElementById('actionBoard');
-            const actionBoardRect = actionBoard.getBoundingClientRect();
-            window.scrollTo({ top: actionBoardRect.top - 100, behavior: 'smooth' });
-            await sleep(1000);
-
-            const unhighlight2 = highlightElement(actionBoard);
-            showTooltip(actionBoard, {
+            
+            // Tooltip: Action Board overview
+            let unhighlight2 = highlightElement(actionBoard);
+            await showTooltipAfterScroll(actionBoard, {
                 title: 'Step 2: Automatic Action Plan',
-                text: 'AI analyzes your session and creates structured action items with owners, due dates, and priorities. No manual entry required.'
-            }, 'bottom');
-            await sleep(6000);
+                text: 'AI analyzed your session and created 6 structured action items. Each has an owner, due date, priority, and risk level.'
+            }, 'bottom', 100);
+            await sleep(5000);
             unhighlight2();
-            document.getElementById('tooltipContainer').innerHTML = '';
+            clearTooltip();
+            
+            // Tooltip: Action cards in committed
+            const committedColumn = document.getElementById('committedCards');
+            if (committedColumn && committedColumn.children.length > 0) {
+                const firstCard = committedColumn.children[0];
+                unhighlight2 = highlightElement(firstCard);
+                showTooltip(firstCard, {
+                    title: 'Action Cards',
+                    text: 'Each card shows the action, owner initials, due date, and risk level. Drag cards between columns to update status.'
+                }, 'right');
+                await sleep(4500);
+                unhighlight2();
+                clearTooltip();
+            }
 
             // Step 3: Move one to In Progress
             currentStep = 3;
@@ -1053,21 +1216,62 @@
             if (actionToProgress) {
                 const card = document.querySelector(`[data-action-id="${actionToProgress.id}"]`);
                 if (card) {
-                    const unhighlight3 = highlightElement(card);
+                    let unhighlight3 = highlightElement(card);
                     showTooltip(card, {
                         title: 'Step 3: Drag & Drop Workflow',
-                        text: 'Team members update status by dragging cards. Real-time visibility for leadership without status meetings.'
+                        text: 'Team members update status by dragging cards between columns. No status meetings needed.'
                     }, 'right');
-                    await sleep(5500);
+                    await sleep(4500);
                     unhighlight3();
-                    document.getElementById('tooltipContainer').innerHTML = '';
+                    clearTooltip();
                 }
                 
                 actionToProgress.status = 'in-progress';
                 renderActions();
+                await sleep(600);
+                
+                // Tooltip: Card moved to In Progress
+                const inProgressCard = document.querySelector(`[data-action-id="${actionToProgress.id}"]`);
+                if (inProgressCard) {
+                    unhighlight3 = highlightElement(inProgressCard);
+                    showTooltip(inProgressCard, {
+                        title: 'Status Updated',
+                        text: 'Card moved to In Progress. The dashboard updates in real-time. Leadership sees progress instantly.'
+                    }, 'right');
+                    await sleep(4000);
+                    unhighlight3();
+                    clearTooltip();
+                }
+                
                 updateKPIs();
+                await sleep(400);
+                
+                // Tooltip: KPIs updating
+                const kpiActions = document.getElementById('kpiActions');
+                unhighlight3 = highlightElement(kpiActions.closest('.kpi-card'));
+                showTooltip(kpiActions.closest('.kpi-card'), {
+                    title: 'Real-time KPIs',
+                    text: 'Metrics update automatically as actions move through the workflow. No manual reporting needed.'
+                }, 'top');
+                await sleep(4000);
+                unhighlight3();
+                clearTooltip();
+                
                 updateTimeline(3);
-                await sleep(1200);
+                await sleep(400);
+                
+                // Tooltip: Timeline step 3
+                const timelineStep3 = document.querySelectorAll('#timeline > div:not(.text-gray-300)')[2];
+                if (timelineStep3) {
+                    unhighlight3 = highlightElement(timelineStep3);
+                    showTooltip(timelineStep3, {
+                        title: 'Timeline: Owners Assigned',
+                        text: 'Each action has a clear owner. Accountability is built into the system.'
+                    }, 'top');
+                    await sleep(3500);
+                    unhighlight3();
+                    clearTooltip();
+                }
             }
 
             // Step 4: Trigger check-ins
@@ -1076,22 +1280,49 @@
             showStepIndicator('checkIn', 4);
             
             scheduleCheckIns();
-            updateTimeline(4);
-            await sleep(1200);
-
+            await sleep(600);
+            
+            // Tooltip: Check-ins created
             const checkInSection = document.getElementById('checkInSection');
-            const checkInRect = checkInSection.getBoundingClientRect();
-            window.scrollTo({ top: checkInRect.top - 100, behavior: 'smooth' });
-            await sleep(1000);
-
-            const unhighlight4 = highlightElement(checkInSection);
-            showTooltip(checkInSection, {
+            
+            let unhighlight4 = highlightElement(checkInSection);
+            await showTooltipAfterScroll(checkInSection, {
                 title: 'Step 4: Automated Check-ins',
-                text: 'System automatically sends check-ins based on cadence. Team responds with one click. Blockers are surfaced immediately.'
-            }, 'bottom');
-            await sleep(6000);
+                text: 'System automatically creates check-ins based on each action\'s cadence. No manual follow-up needed.'
+            }, 'bottom', 100);
+            await sleep(5000);
             unhighlight4();
-            document.getElementById('tooltipContainer').innerHTML = '';
+            clearTooltip();
+            
+            // Tooltip: Individual check-in card
+            const checkInList = document.getElementById('checkInList');
+            if (checkInList && checkInList.children.length > 0) {
+                const firstCheckIn = checkInList.children[0];
+                unhighlight4 = highlightElement(firstCheckIn);
+                showTooltip(firstCheckIn, {
+                    title: 'Check-in Cards',
+                    text: 'Team members get simple one-click responses: On Track, Stuck, or Need Help. Takes seconds, not hours.'
+                }, 'right');
+                await sleep(4500);
+                unhighlight4();
+                clearTooltip();
+            }
+            
+            updateTimeline(4);
+            await sleep(400);
+            
+            // Tooltip: Timeline step 4
+            const timelineStep4 = document.querySelectorAll('#timeline > div:not(.text-gray-300)')[3];
+            if (timelineStep4) {
+                unhighlight4 = highlightElement(timelineStep4);
+                showTooltip(timelineStep4, {
+                    title: 'Timeline: Check-ins Sent',
+                    text: 'Automated check-ins keep momentum going between sessions. No one falls through the cracks.'
+                }, 'top');
+                await sleep(3500);
+                unhighlight4();
+                clearTooltip();
+            }
 
             // Step 5: Respond to check-ins
             currentStep = 5;
@@ -1099,19 +1330,87 @@
             showStepIndicator('checkIn', 5);
             
             if (checkIns.length > 0) {
+                // Tooltip: On Track response
+                const onTrackCheckIn = checkIns[0];
+                const onTrackCard = document.querySelector(`#checkInList > div:first-child`);
+                if (onTrackCard) {
+                    let unhighlight5 = highlightElement(onTrackCard);
+                    showTooltip(onTrackCard, {
+                        title: 'Quick Response',
+                        text: 'Team members click "On Track" to confirm progress. Simple, fast, no meetings required.'
+                    }, 'right');
+                    await sleep(4000);
+                    unhighlight5();
+                    clearTooltip();
+                }
+                
                 respondToCheckIn(checkIns[0].id, 'on-track');
-                await sleep(1500);
+                await sleep(800);
             }
+            
             if (checkIns.length > 1) {
                 const stuckCheckIn = checkIns[1];
                 const textarea = document.getElementById(`note-${stuckCheckIn.id}`);
                 if (textarea) {
+                    // Tooltip: Adding blocker note
+                    let unhighlight5a = highlightElement(textarea);
+                    showTooltip(textarea, {
+                        title: 'Blocker Detection',
+                        text: 'When someone clicks "Stuck", they can add a note explaining the blocker. The system automatically flags it.'
+                    }, 'right');
+                    await sleep(4000);
+                    unhighlight5a();
+                    clearTooltip();
+                    
                     textarea.value = 'Waiting on budget approval from finance';
-                    await sleep(800);
+                    await sleep(600);
                 }
+                
+                // Tooltip: Stuck response
+                const stuckCard = document.querySelector(`#checkInList > div:nth-child(2)`);
+                if (stuckCard) {
+                    let unhighlight5b = highlightElement(stuckCard);
+                    showTooltip(stuckCard, {
+                        title: 'Blockers Surface Automatically',
+                        text: 'Clicking "Stuck" automatically moves the action to Blocked and alerts leadership. No surprises.'
+                    }, 'right');
+                    await sleep(4500);
+                    unhighlight5b();
+                    clearTooltip();
+                }
+                
                 respondToCheckIn(stuckCheckIn.id, 'stuck');
+                await sleep(600);
+                
+                // Tooltip: Card moved to Blocked
+                const blockedColumn = document.getElementById('blockedCards');
+                if (blockedColumn && blockedColumn.children.length > 0) {
+                    const blockedCard = blockedColumn.children[0];
+                    unhighlight5 = highlightElement(blockedCard);
+                    showTooltip(blockedCard, {
+                        title: 'Blocked Column',
+                        text: 'Blocked items are immediately visible. Leadership can see what needs attention without asking.'
+                    }, 'left');
+                    await sleep(4000);
+                    unhighlight5();
+                    clearTooltip();
+                }
+                
                 updateTimeline(5);
-                await sleep(1800);
+                await sleep(400);
+                
+                // Tooltip: Timeline step 5
+                const timelineStep5 = document.querySelectorAll('#timeline > div:not(.text-gray-300)')[4];
+                if (timelineStep5) {
+                    unhighlight5 = highlightElement(timelineStep5);
+                    showTooltip(timelineStep5, {
+                        title: 'Timeline: Blockers Resolved',
+                        text: 'The system tracks when blockers are identified and resolved. Full visibility into execution health.'
+                    }, 'top');
+                    await sleep(3500);
+                    unhighlight5();
+                    clearTooltip();
+                }
             }
 
             // Step 6: Resolve blocker and move to Done
@@ -1121,29 +1420,104 @@
             
             const blockedAction = actions.find(a => a.status === 'blocked');
             if (blockedAction) {
+                // Tooltip: Resolving blocker
+                const blockedCard = document.querySelector(`[data-action-id="${blockedAction.id}"]`);
+                if (blockedCard) {
+                    let unhighlight6 = highlightElement(blockedCard);
+                    showTooltip(blockedCard, {
+                        title: 'Resolving Blockers',
+                        text: 'Once a blocker is resolved, simply drag the card back to In Progress, then to Done when complete.'
+                    }, 'left');
+                    await sleep(4000);
+                    unhighlight6();
+                    clearTooltip();
+                }
+                
                 blockedAction.status = 'in-progress';
                 renderActions();
-                await sleep(1000);
+                await sleep(600);
+                
                 blockedAction.status = 'done';
                 renderActions();
+                await sleep(600);
+                
+                // Tooltip: Card in Done column
+                const doneColumn = document.getElementById('doneCards');
+                if (doneColumn && doneColumn.children.length > 0) {
+                    const doneCard = doneColumn.children[0];
+                    unhighlight6 = highlightElement(doneCard);
+                    showTooltip(doneCard, {
+                        title: 'Completed Actions',
+                        text: 'Done items stay visible for tracking. Completion rate and clarity score update automatically.'
+                    }, 'left');
+                    await sleep(4000);
+                    unhighlight6();
+                    clearTooltip();
+                }
+                
                 updateKPIs();
+                await sleep(400);
+                
+                // Tooltip: KPIs updating after completion
+                const kpiCompletion = document.getElementById('kpiCompletion');
+                unhighlight6 = highlightElement(kpiCompletion.closest('.kpi-card'));
+                showTooltip(kpiCompletion.closest('.kpi-card'), {
+                    title: 'Completion Rate',
+                    text: 'Watch the completion rate update in real-time. No manual calculations or status reports needed.'
+                }, 'top');
+                await sleep(4000);
+                unhighlight6();
+                clearTooltip();
+                
+                const kpiClarity = document.getElementById('kpiClarity');
+                unhighlight6 = highlightElement(kpiClarity.closest('.kpi-card'));
+                showTooltip(kpiClarity.closest('.kpi-card'), {
+                    title: 'Clarity Score',
+                    text: 'The clarity score reflects execution health. Higher scores mean fewer blockers and more completed actions.'
+                }, 'top');
+                await sleep(4000);
+                unhighlight6();
+                clearTooltip();
+                
                 updateTimeline(6);
-                await sleep(800);
+                await sleep(400);
+                
+                // Tooltip: Timeline step 6
+                const timelineStep6 = document.querySelectorAll('#timeline > div:not(.text-gray-300)')[5];
+                if (timelineStep6) {
+                    unhighlight6 = highlightElement(timelineStep6);
+                    showTooltip(timelineStep6, {
+                        title: 'Timeline: Outcomes Achieved',
+                        text: 'The complete journey from session to execution is tracked automatically. Full accountability.'
+                    }, 'top');
+                    await sleep(3500);
+                    unhighlight6();
+                    clearTooltip();
+                }
             }
 
             const dashboard = document.getElementById('dashboard');
-            const dashboardRect = dashboard.getBoundingClientRect();
-            window.scrollTo({ top: dashboardRect.top - 100, behavior: 'smooth' });
-            await sleep(1000);
-
-            const unhighlight5 = highlightElement(dashboard);
-            showTooltip(dashboard, {
-                title: 'Step 5: Leadership Dashboard',
-                text: 'Real-time KPIs and clarity score give you instant visibility. No spreadsheets. No status meetings. Just execution.'
-            }, 'bottom');
-            await sleep(6000);
+            
+            // Tooltip: Dashboard overview
+            let unhighlight5 = highlightElement(dashboard);
+            await showTooltipAfterScroll(dashboard, {
+                title: 'Step 6: Leadership Dashboard',
+                text: 'Real-time KPIs, clarity score, and timeline give you instant visibility. No spreadsheets. No status meetings. Just execution.'
+            }, 'bottom', 100);
+            await sleep(5000);
             unhighlight5();
-            document.getElementById('tooltipContainer').innerHTML = '';
+            clearTooltip();
+            
+            // Tooltip: Timeline component
+            const timeline = document.getElementById('timeline');
+            unhighlight5 = highlightElement(timeline.closest('.premium-card'));
+            showTooltip(timeline.closest('.premium-card'), {
+                title: 'Session to Execution Timeline',
+                text: 'Visualize the complete flow from session creation to outcomes. See where your team is at a glance.'
+            }, 'top');
+            await sleep(4000);
+            unhighlight5();
+            clearTooltip();
 
             // Step 7: Generate summary
             currentStep = 7;
@@ -1151,31 +1525,71 @@
             showStepIndicator('summary', 7);
             
             const summarySection = document.getElementById('summarySection');
-            const summaryRect = summarySection.getBoundingClientRect();
-            window.scrollTo({ top: summaryRect.top - 100, behavior: 'smooth' });
-            await sleep(1000);
+            
+            // Tooltip: Summary section overview
+            let unhighlight7 = highlightElement(summarySection);
+            await showTooltipAfterScroll(summarySection, {
+                title: 'Step 7: Client Summary',
+                text: 'Generate professional follow-up summaries that keep clients engaged between sessions. No manual writing required.'
+            }, 'bottom', 100);
+            await sleep(4500);
+            unhighlight7();
+            clearTooltip();
 
             const summaryBtn = document.getElementById('generateSummaryBtn');
-            const unhighlight6 = highlightElement(summaryBtn);
+            unhighlight7 = highlightElement(summaryBtn);
             showTooltip(summaryBtn, {
-                title: 'Step 6: Client Summary',
-                text: 'Generate professional follow-up summaries automatically. Keep clients engaged between sessions with clear progress updates.'
+                title: 'One-Click Summary',
+                text: 'Click to generate a complete summary with decisions, progress, blockers, and next steps. Ready to send to clients.'
             }, 'top');
-            await sleep(5500);
-            unhighlight6();
-            document.getElementById('tooltipContainer').innerHTML = '';
+            await sleep(4500);
+            unhighlight7();
+            clearTooltip();
 
             generateSummary();
-            await sleep(1500);
+            await sleep(800);
+            
+            // Tooltip: Summary content
+            const summaryOutput = document.getElementById('summaryOutput');
+            if (summaryOutput && !summaryOutput.classList.contains('hidden')) {
+                unhighlight7 = highlightElement(summaryOutput);
+                showTooltip(summaryOutput, {
+                    title: 'Professional Summary',
+                    text: 'The summary includes what was decided, what\'s moving, what\'s stuck, next week\'s focus, and all owners with due dates. Copy and send.'
+                }, 'top');
+                await sleep(5000);
+                unhighlight7();
+                clearTooltip();
+            }
+            
+            await sleep(500);
 
             // Final step
             updateDemoProgress(totalSteps);
-            await sleep(1500);
+            await sleep(800);
+            
+            // Final completion tooltip
+            const ctaSection = document.querySelector('section:last-of-type');
+            if (ctaSection) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                await sleep(1000);
+                
+                let unhighlightFinal = highlightElement(ctaSection);
+                showTooltip(ctaSection, {
+                    title: 'Demo Complete!',
+                    text: 'You\'ve seen the complete flow: session capture → action plan → check-ins → blockers → dashboard → summary. Ready to transform your coaching practice?'
+                }, 'top');
+                await sleep(5000);
+                unhighlightFinal();
+                clearTooltip();
+            }
+            
+            await sleep(500);
 
             // Cleanup
             document.getElementById('demoProgress').classList.add('hidden');
             document.getElementById('demoOverlay').classList.add('hidden');
-            document.getElementById('tooltipContainer').innerHTML = '';
+            clearTooltip();
             
             // Scroll to top
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1194,6 +1608,57 @@
 
         function sleep(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function waitForScroll() {
+            return new Promise(resolve => {
+                let lastScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                let scrollTimeout;
+                
+                const checkScroll = () => {
+                    const currentScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                    
+                    if (currentScrollTop === lastScrollTop) {
+                        clearTimeout(scrollTimeout);
+                        scrollTimeout = setTimeout(() => {
+                            window.removeEventListener('scroll', checkScroll);
+                            resolve();
+                        }, 100);
+                    } else {
+                        lastScrollTop = currentScrollTop;
+                    }
+                };
+                
+                window.addEventListener('scroll', checkScroll, { passive: true });
+                // Fallback timeout
+                setTimeout(() => {
+                    window.removeEventListener('scroll', checkScroll);
+                    resolve();
+                }, 1000);
+            });
+        }
+
+        async function scrollToElement(element, offset = 100) {
+            const rect = element.getBoundingClientRect();
+            const targetTop = window.pageYOffset + rect.top - offset;
+            window.scrollTo({ top: targetTop, behavior: 'smooth' });
+            await waitForScroll();
+            await sleep(200); // Small delay to ensure element is stable
+        }
+
+        async function showTooltipAfterScroll(element, message, position = 'bottom', scrollOffset = 100) {
+            // Scroll to element first
+            await scrollToElement(element, scrollOffset);
+            await sleep(300); // Additional delay to ensure positioning
+            
+            // Show tooltip
+            const tooltip = showTooltip(element, message, position);
+            
+            // Reposition after a brief moment to account for any layout shifts
+            await sleep(100);
+            repositionTooltip();
+            
+            return tooltip;
         }
     </script>
 </body>
