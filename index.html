@@ -102,9 +102,9 @@
         .demo-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.1);
             z-index: 999;
-            backdrop-filter: blur(2px);
+            pointer-events: none;
         }
         .demo-progress {
             position: fixed;
@@ -439,7 +439,7 @@
                 <h2 class="text-3xl font-bold mb-4">Want this for your clients?</h2>
                 <p class="text-gray-300 mb-8 text-lg max-w-2xl mx-auto">Built as a lightweight system your clients actually use. No complex setup. No training required. Just execution.</p>
                 <button
-                  onclick="window.location.href='mailto:usama.saleem@genaxai.com?subject=Discovery%20Call&body=Hi%20Usama%2C%0A%0AI%27d%20like%20to%20book%20a%2015-min%20discovery%20call%20to%20discuss%20this%20further.%0A%0AWhat%20times%20work%20best%20for%20you%20this%20week%3F%0A%0AThanks%2C%0A%5BYour%20Name%5D';"
+                  onclick="window.location.href='mailto:usama.saleem@genaxai.com?subject=Discovery%20Call&body=Hi%20Usama%2C%0A%0AI%27d%20like%20to%20book%20a%2015-min%20discovery%20call%20to%20discuss%20this%20further.%0A%0AWhat%20times%20work%20best%20for%20you%20this%20week%3F%0A%0AThanks';"
                   class="px-10 py-4 bg-white text-gray-900 rounded-xl font-bold hover:bg-gray-100 transition-all shadow-xl text-lg"
                 >
                   Book 15-min build call
@@ -999,17 +999,17 @@
             
             const modal = document.getElementById('sessionModal');
             modal.classList.remove('hidden');
-            await sleep(300);
+            await sleep(500);
             
             document.getElementById('sessionName').value = 'Exec Alignment Workshop';
             document.getElementById('sessionDate').value = new Date().toISOString().split('T')[0];
             document.getElementById('coachNotes').value = 'Strategic alignment session focused on Q1 execution. Key decisions around resource allocation and team structure.';
             addParticipant('Sarah Chen');
-            await sleep(400);
+            await sleep(600);
             addParticipant('Mike Johnson');
-            await sleep(400);
+            await sleep(600);
             addParticipant('Alex Rivera');
-            await sleep(500);
+            await sleep(800);
 
             const modalEl = document.querySelector('#sessionModal .bg-white');
             const unhighlight = highlightElement(modalEl);
@@ -1017,7 +1017,7 @@
                 title: 'Step 1: Session Capture',
                 text: 'Every coaching session starts here. Capture decisions, notes, and participants. The system automatically converts this into an execution plan.'
             }, 'bottom');
-            await sleep(2500);
+            await sleep(6000);
             unhighlight();
             document.getElementById('tooltipContainer').innerHTML = '';
 
@@ -1028,19 +1028,19 @@
             
             generateActionPlan();
             updateTimeline(2);
-            await sleep(800);
+            await sleep(1200);
 
             const actionBoard = document.getElementById('actionBoard');
             const actionBoardRect = actionBoard.getBoundingClientRect();
             window.scrollTo({ top: actionBoardRect.top - 100, behavior: 'smooth' });
-            await sleep(600);
+            await sleep(1000);
 
             const unhighlight2 = highlightElement(actionBoard);
             showTooltip(actionBoard, {
                 title: 'Step 2: Automatic Action Plan',
                 text: 'AI analyzes your session and creates structured action items with owners, due dates, and priorities. No manual entry required.'
             }, 'bottom');
-            await sleep(2500);
+            await sleep(6000);
             unhighlight2();
             document.getElementById('tooltipContainer').innerHTML = '';
 
@@ -1058,7 +1058,7 @@
                         title: 'Step 3: Drag & Drop Workflow',
                         text: 'Team members update status by dragging cards. Real-time visibility for leadership without status meetings.'
                     }, 'right');
-                    await sleep(2000);
+                    await sleep(5500);
                     unhighlight3();
                     document.getElementById('tooltipContainer').innerHTML = '';
                 }
@@ -1067,7 +1067,7 @@
                 renderActions();
                 updateKPIs();
                 updateTimeline(3);
-                await sleep(800);
+                await sleep(1200);
             }
 
             // Step 4: Trigger check-ins
@@ -1077,19 +1077,19 @@
             
             scheduleCheckIns();
             updateTimeline(4);
-            await sleep(800);
+            await sleep(1200);
 
             const checkInSection = document.getElementById('checkInSection');
             const checkInRect = checkInSection.getBoundingClientRect();
             window.scrollTo({ top: checkInRect.top - 100, behavior: 'smooth' });
-            await sleep(600);
+            await sleep(1000);
 
             const unhighlight4 = highlightElement(checkInSection);
             showTooltip(checkInSection, {
                 title: 'Step 4: Automated Check-ins',
                 text: 'System automatically sends check-ins based on cadence. Team responds with one click. Blockers are surfaced immediately.'
             }, 'bottom');
-            await sleep(2500);
+            await sleep(6000);
             unhighlight4();
             document.getElementById('tooltipContainer').innerHTML = '';
 
@@ -1100,18 +1100,18 @@
             
             if (checkIns.length > 0) {
                 respondToCheckIn(checkIns[0].id, 'on-track');
-                await sleep(1000);
+                await sleep(1500);
             }
             if (checkIns.length > 1) {
                 const stuckCheckIn = checkIns[1];
                 const textarea = document.getElementById(`note-${stuckCheckIn.id}`);
                 if (textarea) {
                     textarea.value = 'Waiting on budget approval from finance';
-                    await sleep(500);
+                    await sleep(800);
                 }
                 respondToCheckIn(stuckCheckIn.id, 'stuck');
                 updateTimeline(5);
-                await sleep(1200);
+                await sleep(1800);
             }
 
             // Step 6: Resolve blocker and move to Done
@@ -1123,24 +1123,25 @@
             if (blockedAction) {
                 blockedAction.status = 'in-progress';
                 renderActions();
-                await sleep(600);
+                await sleep(1000);
                 blockedAction.status = 'done';
                 renderActions();
                 updateKPIs();
                 updateTimeline(6);
+                await sleep(800);
             }
 
             const dashboard = document.getElementById('dashboard');
             const dashboardRect = dashboard.getBoundingClientRect();
             window.scrollTo({ top: dashboardRect.top - 100, behavior: 'smooth' });
-            await sleep(600);
+            await sleep(1000);
 
             const unhighlight5 = highlightElement(dashboard);
             showTooltip(dashboard, {
                 title: 'Step 5: Leadership Dashboard',
                 text: 'Real-time KPIs and clarity score give you instant visibility. No spreadsheets. No status meetings. Just execution.'
             }, 'bottom');
-            await sleep(2500);
+            await sleep(6000);
             unhighlight5();
             document.getElementById('tooltipContainer').innerHTML = '';
 
@@ -1152,7 +1153,7 @@
             const summarySection = document.getElementById('summarySection');
             const summaryRect = summarySection.getBoundingClientRect();
             window.scrollTo({ top: summaryRect.top - 100, behavior: 'smooth' });
-            await sleep(600);
+            await sleep(1000);
 
             const summaryBtn = document.getElementById('generateSummaryBtn');
             const unhighlight6 = highlightElement(summaryBtn);
@@ -1160,16 +1161,16 @@
                 title: 'Step 6: Client Summary',
                 text: 'Generate professional follow-up summaries automatically. Keep clients engaged between sessions with clear progress updates.'
             }, 'top');
-            await sleep(2000);
+            await sleep(5500);
             unhighlight6();
             document.getElementById('tooltipContainer').innerHTML = '';
 
             generateSummary();
-            await sleep(1000);
+            await sleep(1500);
 
             // Final step
             updateDemoProgress(totalSteps);
-            await sleep(1000);
+            await sleep(1500);
 
             // Cleanup
             document.getElementById('demoProgress').classList.add('hidden');
